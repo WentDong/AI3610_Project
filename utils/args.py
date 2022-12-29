@@ -2,6 +2,15 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--train", type = bool, default=True, help = "whether to train the model"
+    )
+    parser.add_argument(
+        "--test", dest='train', action='store_false', help = "only test the model"
+    )
+    parser.add_argument(
+        "--model", type = str, default = "LeNet", help = "the model to use"
+    )
+    parser.add_argument(
         "--bs", type = int, default = 16, help = "batch size"
     )
     parser.add_argument(
@@ -16,4 +25,9 @@ def get_args():
     parser.add_argument(
         "--root_path", type = str, default='.', help = "the root path"
     )
-    return parser.parse_args()
+
+    args = parser.parse_args()
+
+    args.backdoor_adjustment = args.model.lower() in ['lenet']
+
+    return args

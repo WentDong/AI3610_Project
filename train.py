@@ -52,7 +52,6 @@ if __name__ == "__main__":
 
     rate = trainDataset.num[0] / (trainDataset.num[0] + trainDataset.num[1])  # P(E=0)
     print(rate)
-    n_epoch = 3
     print(trainDataset.col_label)
     if (args.Reweight):
         loss_function_r = nn.CrossEntropyLoss(
@@ -69,12 +68,20 @@ if __name__ == "__main__":
     if not os.path.exists(args.out_path):
         os.mkdir(args.out_path)
 
-    for epoch in range(n_epoch):
-        if args.train:
+
+    if args.train:
+        for epoch in range(args.n_epoch):
             train_epoch(trainLoader, model, device, optimizer, epoch, loss_function_r, loss_function_g, writer)
+            if args.backdoor_adjustment:
+                acc = eval(model, device, testLoader, [rate, 1 - rate])
+            else:
+                acc = eval(model, device, testLoader, [1.])
+            print(f"After epoch {epoch}, the accuracy is {acc}")
+            torch.save(model, f"./out/epoch{epoch}_channel{channel}.pth")
+    else:
         if args.backdoor_adjustment:
-            acc = eval(model, testLoader, [rate, 1 - rate])
+            acc = eval(model, device, testLoader, [rate, 1 - rate])
         else:
-            acc = eval(model, testLoader, [1.])
-        print(f"After epoch {epoch}, the accuracy is {acc}")
-        torch.save(model, f"./out/epoch{epoch}_channel{channel}.pth")
+            acc = eval(model, device, testLoader, [1.])
+        print(f"The accuracy is {acc}")
+

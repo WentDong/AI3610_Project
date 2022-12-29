@@ -58,4 +58,4 @@ if __name__=="__main__":
         else:
             acc = eval(model, testLoader, [1.])
         print(f"After epoch {epoch}, the accuracy is {acc}")
-        torch.save(Model, f"./out/epoch{epoch}_channel{channel}.pth" )
+        torch.save(model, f"./out/epoch{epoch}_channel{channel}.pth" )

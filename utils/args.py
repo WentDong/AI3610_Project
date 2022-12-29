@@ -5,6 +5,9 @@ def get_args():
         "--train", type = bool, default=True, help = "whether to train the model"
     )
     parser.add_argument(
+        "--n_epoch", type = int, default=3, help = "number of epochs"
+    )
+    parser.add_argument(
         "--test", dest='train', action='store_false', help = "only test the model"
     )
     parser.add_argument(

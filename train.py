@@ -33,6 +33,7 @@ if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     if args.model.lower() == "lenet":
         from model.LeNet import MyModel as Model
+        transform = None
     elif args.model.lower() == "clip":
         from model.CLIP import CLIPClassifier as Model
 
@@ -50,12 +51,11 @@ if __name__ == "__main__":
 
     rate = trainDataset.num[0] / (trainDataset.num[0] + trainDataset.num[1])  # P(E)
     print(rate)
-    n_epoch = 3
     print(trainDataset.col_label)
     loss_function_r = nn.CrossEntropyLoss(
-        weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
+        weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]], device=device).float())
     loss_function_g = nn.CrossEntropyLoss(
-        weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
+        weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]], device=device).float())
 
     model = Model(input_channel=channel, device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -64,12 +64,20 @@ if __name__ == "__main__":
     if not os.path.exists(args.out_path):
         os.mkdir(args.out_path)
 
-    for epoch in range(n_epoch):
-        if args.train:
+
+    if args.train:
+        for epoch in range(args.n_epoch):
             train_epoch(trainLoader, model, device, optimizer, epoch, loss_function_r, loss_function_g, writer)
+            if args.backdoor_adjustment:
+                acc = eval(model, device, testLoader, [rate, 1 - rate])
+            else:
+                acc = eval(model, device, testLoader, [1.])
+            print(f"After epoch {epoch}, the accuracy is {acc}")
+            torch.save(model, f"./out/epoch{epoch}_channel{channel}.pth")
+    else:
         if args.backdoor_adjustment:
-            acc = eval(model, testLoader, [rate, 1 - rate])
+            acc = eval(model, device, testLoader, [rate, 1 - rate])
         else:
-            acc = eval(model, testLoader, [1.])
-        print(f"After epoch {epoch}, the accuracy is {acc}")
-        torch.save(model, f"./out/epoch{epoch}_channel{channel}.pth")
+            acc = eval(model, device, testLoader, [1.])
+        print(f"The accuracy is {acc}")
+

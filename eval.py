@@ -12,7 +12,7 @@ def eval(model, device, testLoader, prior_list):
     Prior_list: the prior probability of P(e).
     '''
     loop = tqdm(enumerate(testLoader), total=len(testLoader))
-    Acc = 0
+    acc = 0
     num = 0
     for index, (img, target, col) in loop:
         with torch.no_grad():
@@ -21,9 +21,9 @@ def eval(model, device, testLoader, prior_list):
             pred_list = model.eval(img, col)
             pred = BackDoorAdjust(pred_list, prior_list)
             pred = torch.argmax(pred, dim = 1)
-            Acc += torch.sum(pred==target)
+            acc += torch.sum(pred==target)
             num += len(target)
-    return Acc/num
+    return acc/num
 
 
 if __name__=="__main__":

@@ -3,7 +3,8 @@ import torch
 import clip
 
 numbers = range(10)
-label_text = [f"A photo to the number {n}." for n in numbers]
+template = "A photo of colored handwritten number [num]"
+label_text = [template.replace("[num]", str(num)) for num in numbers]
 
 
 class CLIPClassifier(nn.Module):
@@ -16,9 +17,12 @@ class CLIPClassifier(nn.Module):
     def forward(self, x, col, target):
         logits_per_image, logits_per_text = self.model(x, self.label_token)
         pred = logits_per_image.softmax(dim=-1)
-        pred = [pred[:, 5:].sum(dim=1, keepdims=True)]
+        pred = pred[:, :5].sum(dim=1, keepdims=True)
+        pred = [torch.cat([pred, 1 - pred], dim=1)]
         return pred, target
 
     def eval(self, x, col):
-        return self.forward(x, col, None)[0]
+        with torch.no_grad():
+            pred = self.forward(x, col, None)[0]
+        return pred
 

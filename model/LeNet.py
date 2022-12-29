@@ -27,10 +27,14 @@ class MyModel(nn.Module):
     def forward(self, x, col, target):
         mask_r = (col==0)
         mask_g = (col==1)
-        pred_r = self.net_r(x[mask_r])
-        pred_g = self.net_g(x[mask_g])
-        target_r = target[mask_r]
-        target_g = target[mask_g]
+        pred_r = self.net_r(x)
+        pred_g = self.net_g(x)
+        # pred_r = self.net_r(x[mask_r])
+        # pred_g = self.net_g(x[mask_g])
+        target_r = target
+        target_g = target
+        # target_r = target[mask_r]
+        # target_g = target[mask_g]
         return pred_r, pred_g, target_r, target_g
         
     def eval(self, x, col):

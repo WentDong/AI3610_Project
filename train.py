@@ -19,7 +19,8 @@ def train_epoch(trainLoader, model, device, optimizer, epoch, loss_r, loss_g, wr
 
         pred_r, pred_g, target_r, target_g = model(img, col, target)
         optimizer.zero_grad()
-        loss = loss_r(pred_r, target_r) * len(pred_r) + loss_g(pred_g, target_g) * len(pred_g)
+        # loss = loss_r(pred_r, target_r) * len(pred_r) + loss_g(pred_g, target_g) * len(pred_g)
+        loss = loss_r(pred_r, target_r) + loss_g(pred_g, target_g)
         loss.backward()
         optimizer.step()
         writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
@@ -33,6 +34,7 @@ if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     if args.model.lower() == "lenet":
         from model.LeNet import MyModel as Model
+        transform = None
     elif args.model.lower() == "clip":
         from model.CLIP import CLIPClassifier as Model
 
@@ -43,20 +45,23 @@ if __name__ == "__main__":
         ])
 
     channel = args.channel
-    trainDataset = ColoredMNIST(root=args.root_path, env="all_train", merge_col=channel == 1, transform=transform)
+    trainDataset = ColoredMNIST(root=args.root_path, env=args.trainset, merge_col=channel == 1, transform=transform)
     testDataset = ColoredMNIST(root=args.root_path, env='test', merge_col=channel == 1, transform=transform)
     trainLoader = DataLoader(trainDataset, batch_size=args.bs, shuffle=True)
     testLoader = DataLoader(testDataset, batch_size=args.bs, shuffle=False)
 
-    rate = trainDataset.num[0] / (trainDataset.num[0] + trainDataset.num[1])  # P(E)
+    rate = trainDataset.num[0] / (trainDataset.num[0] + trainDataset.num[1])  # P(E=0)
     print(rate)
     n_epoch = 3
     print(trainDataset.col_label)
-    loss_function_r = nn.CrossEntropyLoss(
-        weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
-    loss_function_g = nn.CrossEntropyLoss(
-        weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
-
+    if (args.Reweight):
+        loss_function_r = nn.CrossEntropyLoss(
+            weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
+        loss_function_g = nn.CrossEntropyLoss(
+            weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
+    else:
+        loss_function_r = nn.CrossEntropyLoss()
+        loss_function_g = nn.CrossEntropyLoss()
     model = Model(input_channel=channel, device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     writer = SummaryWriter()

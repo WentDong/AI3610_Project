@@ -25,7 +25,12 @@ def get_args():
     parser.add_argument(
         "--root_path", type = str, default='.', help = "the root path"
     )
-
+    parser.add_argument(
+        "--Reweight", default = False, action = "store_true", help= "whether use weight in CrossEntropy."
+    )
+    parser.add_argument(
+        "--trainset", default="all_train", type = str, help="Which train dataset. all_train, train1, train2"
+    )
     args = parser.parse_args()
 
     args.backdoor_adjustment = args.model.lower() in ['lenet']

@@ -32,16 +32,16 @@ if __name__=="__main__":
     TestLoader = DataLoader(TestDataset, batch_size=32, shuffle = False)
     Rate = TrainDataset.num[0] / (TrainDataset.num[0]+TrainDataset.num[1]) #P(E)
     print(Rate)
-    n_epoch = 1
+    n_epoch = 3
     Loss_Function_r = nn.CrossEntropyLoss(weight=torch.tensor([TrainDataset.col_label[0][1], TrainDataset.col_label[0][0]]).float())
     Loss_Function_g = nn.CrossEntropyLoss(weight=torch.tensor([TrainDataset.col_label[1][1], TrainDataset.col_label[1][0]]).float())
 
     Model = MyModel(input_channel=Channel)
-    Optimizer = torch.optim.Adam(Model.parameters(), lr = 1e-4)
+    Optimizer = torch.optim.Adam(Model.parameters(), lr = 1e-2)
     Writer = SummaryWriter()
 
     for epoch in range(n_epoch):
         train_epoch(TrainLoader, Model, Optimizer, epoch, Loss_Function_r, Loss_Function_g, Writer)
         Acc = eval(Model, TestLoader, Rate)
         print(f"After epoch {epoch}, the accuracy is {Acc}")
-        torch.save(Model, f"./out/epoch{epoch}.pth" )
+        torch.save(Model, f"./out/epoch{epoch}_channel{Channel}.pth" )

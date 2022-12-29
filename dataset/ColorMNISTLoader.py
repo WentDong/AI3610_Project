@@ -33,6 +33,7 @@ class ColoredMNIST(datasets.VisionDataset):
                 img = img.sum(dim=0).unsqueeze(dim=0)
             self.data_label_color_tuples.append(tuple([img, target, col]))
         # self.data_label_color_tuples = torch.tensor(self.data_label_color_tuples)
+
     def __getitem__(self, index):
         """
     Args:

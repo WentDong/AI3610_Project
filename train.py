@@ -21,6 +21,7 @@ def train_epoch(TrainLoader, Model, Optimizer, epoch, Loss, Writer):
 
 
 if __name__=="__main__":
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     Channel = 1
     if Channel == 1:
         TrainDataset = ColoredMNIST(root = '.', env = "all_train", merge_col = True)
@@ -34,7 +35,7 @@ if __name__=="__main__":
     print(Rate)
     n_epoch = 1
     Loss_Function = nn.CrossEntropyLoss()
-    Model = MyModel(input_channel=Channel)
+    Model = MyModel(input_channel=Channel, device=device).to(device)
     Optimizer = torch.optim.Adam(Model.parameters(), lr = 1e-5)
     Writer = SummaryWriter()
 

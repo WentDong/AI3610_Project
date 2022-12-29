@@ -22,6 +22,7 @@ class MyModel(nn.Module):
         super(MyModel, self).__init__()
         self.net_r = LeNet(input_channel, output_channel)
         self.net_g = LeNet(input_channel, output_channel)
+
     def forward(self, x, col, target):
         mask_r = (col==0)
         mask_g = (col==1)

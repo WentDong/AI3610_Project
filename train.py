@@ -12,15 +12,17 @@ import os
 from utils.args import *
 
 
-def train_epoch(TrainLoader, Model, Optimizer, epoch, Loss_r, Loss_g, Writer):
-    loop = tqdm(enumerate(TrainLoader), total=len(TrainLoader))
+def train_epoch(trainLoader, model, device, optimizer, epoch, loss_r, loss_g, writer):
+    loop = tqdm(enumerate(trainLoader), total=len(trainLoader))
     for index, (img, target, col) in loop:
-        pred_r, pred_g, target_r, target_g = Model(img, col, target)
-        Optimizer.zero_grad()
-        loss = Loss_r(pred_r, target_r) * len(pred_r) + Loss_g(pred_g, target_g) * len(pred_g)
+        img, target, col = img.to(device), target.to(device), col.to(device)
+
+        pred_r, pred_g, target_r, target_g = model(img, col, target)
+        optimizer.zero_grad()
+        loss = loss_r(pred_r, target_r) * len(pred_r) + loss_g(pred_g, target_g) * len(pred_g)
         loss.backward()
-        Optimizer.step()
-        Writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(TrainLoader))
+        optimizer.step()
+        writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
         loop.set_description(f'In Epoch {epoch}')
         loop.set_postfix(loss=loss)
 
@@ -37,7 +39,6 @@ if __name__ == "__main__":
         transform = Compose([
             Resize(224, interpolation=InterpolationMode.BICUBIC),
             CenterCrop(224),
-            ToTensor(),
             Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
         ])
 
@@ -64,7 +65,8 @@ if __name__ == "__main__":
         os.mkdir(args.out_path)
 
     for epoch in range(n_epoch):
-        train_epoch(trainLoader, model, optimizer, epoch, loss_function_r, loss_function_g, writer)
+        if args.train:
+            train_epoch(trainLoader, model, device, optimizer, epoch, loss_function_r, loss_function_g, writer)
         if args.backdoor_adjustment:
             acc = eval(model, testLoader, [rate, 1 - rate])
         else:

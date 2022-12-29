@@ -32,3 +32,8 @@ class MyModel(nn.Module):
         target_g = target[mask_g]
         return pred_r, pred_g, target_r, target_g
         
+    def eval(self, x, col):
+        pred_r = self.net_r(x)
+        pred_g = self.net_g(x)
+        return [pred_r, pred_g]
+        

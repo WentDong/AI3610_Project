@@ -42,4 +42,4 @@ if __name__=="__main__":
         train_epoch(TrainLoader, Model, Optimizer, epoch, Loss_Function, Writer)
         Acc = eval(Model, TestLoader, Rate)
         print(f"After epoch {epoch}, the accuracy is {Acc}")
-        torch.save(Model, f"./out/epoch{epoch}.pth" )
+        torch.save(Model, f"./out/epoch{epoch}.pth")

@@ -13,8 +13,7 @@ class LeNet(nn.Module):
             nn.Flatten(),
             nn.Linear(16 * 5 * 5, 120), nn.ReLU(),
             nn.Linear(120, 84), nn.ReLU(),
-            nn.Linear(84, output_channel),
-            nn.Softmax(dim=1)
+            nn.Linear(84, output_channel)
         )
 
     def forward(self, x):
@@ -27,17 +26,28 @@ class MyModel(nn.Module):
         self.net_r = LeNet(input_channel, output_channel).to(device)
         self.net_g = LeNet(input_channel, output_channel).to(device)
 
-    def forward(self, x, col, target):
-        mask_r = (col==0)
-        mask_g = (col==1)
-        # pred_r = self.net_r(x)
-        # pred_g = self.net_g(x)
-        pred_r = self.net_r(x[mask_r])
-        pred_g = self.net_g(x[mask_g])
-        # target_r = target
-        # target_g = target
-        target_r = target[mask_r]
-        target_g = target[mask_g]
+    def forward(self, x, col, target, change_col):
+        if change_col:
+            x_r = torch.zeros_like(x)
+            x_r[:, 0, :, :] = x.sum(dim=1)
+            x_g = torch.zeros_like(x)
+            x_g[:, 1, :, :] = x.sum(dim=1)
+            pred_r = self.net_r(x_r)
+            pred_g = self.net_g(x_g)
+            target_r = target
+            target_g = target
+        else:
+            mask_r = (col==0)
+            mask_g = (col==1)
+            # pred_r = self.net_r(x)
+            # pred_g = self.net_g(x)
+            pred_r = self.net_r(x[mask_r])
+            pred_g = self.net_g(x[mask_g])
+            # target_r = target
+            # target_g = target
+            target_r = target[mask_r]
+            target_g = target[mask_g]
+
         return pred_r, pred_g, target_r, target_g
         
     def eval(self, x, col, change_col=False):

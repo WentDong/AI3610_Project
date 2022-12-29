@@ -12,12 +12,13 @@ import os
 from utils.args import *
 
 
-def train_epoch(trainLoader, model, device, optimizer, epoch, loss_r, loss_g, writer):
+def train_epoch(trainLoader, model, device, optimizer, epoch, loss_r, loss_g, writer, change_col):
     loop = tqdm(enumerate(trainLoader), total=len(trainLoader))
     for index, (img, target, col) in loop:
         img, target, col = img.to(device), target.to(device), col.to(device)
 
-        pred_r, pred_g, target_r, target_g = model(img, col, target)
+        pred_r, pred_g, target_r, target_g = model(img, col, target, change_col)
+        acc_r, acc_g = (pred_r.argmax(dim=1) == target_r).float().mean(), (pred_g.argmax(dim=1) == target_g).float().mean()
         optimizer.zero_grad()
         # loss = loss_r(pred_r, target_r) * len(pred_r) + loss_g(pred_g, target_g) * len(pred_g)
         loss = loss_r(pred_r, target_r) + loss_g(pred_g, target_g)
@@ -25,7 +26,7 @@ def train_epoch(trainLoader, model, device, optimizer, epoch, loss_r, loss_g, wr
         optimizer.step()
         writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
         loop.set_description(f'In Epoch {epoch}')
-        loop.set_postfix(loss=loss)
+        loop.set_postfix(loss=loss, acc_r=acc_r, acc_g=acc_g)
 
 
 if __name__ == "__main__":
@@ -71,7 +72,7 @@ if __name__ == "__main__":
 
     if args.train:
         for epoch in range(args.n_epoch):
-            train_epoch(trainLoader, model, device, optimizer, epoch, loss_function_r, loss_function_g, writer)
+            train_epoch(trainLoader, model, device, optimizer, epoch, loss_function_r, loss_function_g, writer, args.change_col)
             if args.backdoor_adjustment:
                 acc = eval(model, device, testLoader, [rate, 1 - rate], args.change_col)
             else:

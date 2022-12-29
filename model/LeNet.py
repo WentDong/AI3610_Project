@@ -18,10 +18,11 @@ class LeNet(nn.Module):
         return self.net(x)
 
 class MyModel(nn.Module):
-    def __init__(self, input_channel = 1, output_channel = 2):
+    def __init__(self, input_channel = 1, output_channel = 2, device = 'cuda'):
         super(MyModel, self).__init__()
-        self.net_r = LeNet(input_channel, output_channel)
-        self.net_g = LeNet(input_channel, output_channel)
+        self.device = device
+        self.net_r = LeNet(input_channel, output_channel).to(device)
+        self.net_g = LeNet(input_channel, output_channel).to(device)
 
     def forward(self, x, col, target):
         mask_r = (col==0)

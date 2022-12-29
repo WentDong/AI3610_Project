@@ -1,4 +1,6 @@
 from tqdm import *
+from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
+from torchvision.transforms.functional import InterpolationMode
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from dataset.ColorMNISTLoader import ColoredMNIST
@@ -8,6 +10,8 @@ from eval import eval
 import argparse
 import os
 from utils.args import *
+
+
 def train_epoch(TrainLoader, Model, Optimizer, epoch, Loss_r, Loss_g, Writer):
     loop = tqdm(enumerate(TrainLoader), total=len(TrainLoader))
     for index, (img, target, col) in loop:
@@ -18,32 +22,40 @@ def train_epoch(TrainLoader, Model, Optimizer, epoch, Loss_r, Loss_g, Writer):
         Optimizer.step()
         Writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(TrainLoader))
         loop.set_description(f'In Epoch {epoch}')
-        loop.set_postfix(loss = loss)
+        loop.set_postfix(loss=loss)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     args = get_args()
-    channel = args.channel
-    if channel == 1:
-        trainDataset = ColoredMNIST(root = args.root_path, env = "all_train", merge_col = True)
-        testDataset = ColoredMNIST(root = args.root_path, env='test', merge_col = True)
-    else:
-        trainDataset = ColoredMNIST(root = args.root_path, env = "all_train", merge_col = False)
-        testDataset = ColoredMNIST(root = args.root_path, env='test', merge_col = False)
-    trainLoader = DataLoader(trainDataset, batch_size=args.bs, shuffle = True)
-    testLoader = DataLoader(testDataset, batch_size=args.bs, shuffle = False)
-
-    rate = trainDataset.num[0] / (trainDataset.num[0]+trainDataset.num[1]) #P(E)
-    print(rate)
-    n_epoch = 3
-    print(trainDataset.col_label)
-    loss_function_r = nn.CrossEntropyLoss(weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
-    loss_function_g = nn.CrossEntropyLoss(weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     if args.model.lower() == "lenet":
         from model.LeNet import MyModel as Model
     elif args.model.lower() == "clip":
         from model.CLIP import CLIPClassifier as Model
+
+        transform = Compose([
+            Resize(224, interpolation=InterpolationMode.BICUBIC),
+            CenterCrop(224),
+            ToTensor(),
+            Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
+        ])
+
+    channel = args.channel
+    trainDataset = ColoredMNIST(root=args.root_path, env="all_train", merge_col=channel == 1, transform=transform)
+    testDataset = ColoredMNIST(root=args.root_path, env='test', merge_col=channel == 1, transform=transform)
+    trainLoader = DataLoader(trainDataset, batch_size=args.bs, shuffle=True)
+    testLoader = DataLoader(testDataset, batch_size=args.bs, shuffle=False)
+
+    rate = trainDataset.num[0] / (trainDataset.num[0] + trainDataset.num[1])  # P(E)
+    print(rate)
+    n_epoch = 3
+    print(trainDataset.col_label)
+    loss_function_r = nn.CrossEntropyLoss(
+        weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
+    loss_function_g = nn.CrossEntropyLoss(
+        weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
+
     model = Model(input_channel=channel, device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     writer = SummaryWriter()
@@ -54,8 +66,8 @@ if __name__=="__main__":
     for epoch in range(n_epoch):
         train_epoch(trainLoader, model, optimizer, epoch, loss_function_r, loss_function_g, writer)
         if args.backdoor_adjustment:
-            acc = eval(model, testLoader, [rate, 1-rate])
+            acc = eval(model, testLoader, [rate, 1 - rate])
         else:
             acc = eval(model, testLoader, [1.])
         print(f"After epoch {epoch}, the accuracy is {acc}")
-        torch.save(model, f"./out/epoch{epoch}_channel{channel}.pth" )
+        torch.save(model, f"./out/epoch{epoch}_channel{channel}.pth")

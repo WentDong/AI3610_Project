@@ -17,7 +17,7 @@ def get_args():
         "--lr", type = float, default=1e-4, help = "learning rate"
     )
     parser.add_argument(
-        "--channel", type = int, default=1, help = "the number of channel of the images fed into the net"
+        "--channel", type = int, default=3, help = "the number of channel of the images fed into the net"
     )
     parser.add_argument(
         "--out_path", type = str, default="./out", help = "the path where the model outputs"

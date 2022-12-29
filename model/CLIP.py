@@ -21,7 +21,7 @@ class CLIPClassifier(nn.Module):
         pred = [torch.cat([pred, 1 - pred], dim=1)]
         return pred, target
 
-    def eval(self, x, col):
+    def eval(self, x, col, change_col=False):
         with torch.no_grad():
             pred = self.forward(x, col, None)[0]
         return pred

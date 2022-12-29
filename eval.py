@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from model.BackdoorAdjustment import BackDoorAdjust
 
 
-def eval(model, device, testLoader, prior_list):
+def eval(model, device, testLoader, prior_list, change_col=False):
     '''
     Model: Model should have "eval", input is img, col, output is the pred_list: [P(y|x,e)) for every e]
     Prior_list: the prior probability of P(e).
@@ -18,7 +18,7 @@ def eval(model, device, testLoader, prior_list):
         with torch.no_grad():
             img, target, col = img.to(device), target.to(device), col.to(device)
             
-            pred_list = model.eval(img, col)
+            pred_list = model.eval(img, col, change_col)
             pred = BackDoorAdjust(pred_list, prior_list)
             pred = torch.argmax(pred, dim = 1)
             acc += torch.sum(pred==target)

@@ -14,6 +14,9 @@ def get_args():
         "--model", type = str, default = "LeNet", help = "the model to use"
     )
     parser.add_argument(
+        "--change_col", action='store_true', help = "whether to change the color of the image"
+    )
+    parser.add_argument(
         "--bs", type = int, default = 16, help = "batch size"
     )
     parser.add_argument(

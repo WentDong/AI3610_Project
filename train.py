@@ -73,15 +73,15 @@ if __name__ == "__main__":
         for epoch in range(args.n_epoch):
             train_epoch(trainLoader, model, device, optimizer, epoch, loss_function_r, loss_function_g, writer)
             if args.backdoor_adjustment:
-                acc = eval(model, device, testLoader, [rate, 1 - rate])
+                acc = eval(model, device, testLoader, [rate, 1 - rate], args.change_col)
             else:
-                acc = eval(model, device, testLoader, [1.])
+                acc = eval(model, device, testLoader, [1.], args.change_col)
             print(f"After epoch {epoch}, the accuracy is {acc}")
             torch.save(model, f"./out/epoch{epoch}_channel{channel}.pth")
     else:
         if args.backdoor_adjustment:
-            acc = eval(model, device, testLoader, [rate, 1 - rate])
+            acc = eval(model, device, testLoader, [rate, 1 - rate], args.change_col)
         else:
-            acc = eval(model, device, testLoader, [1.])
+            acc = eval(model, device, testLoader, [1.], args.change_col)
         print(f"The accuracy is {acc}")
 

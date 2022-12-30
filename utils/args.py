@@ -5,13 +5,10 @@ def get_args():
         "--train", type = bool, default=True, help = "whether to train the model"
     )
     parser.add_argument(
-        "--n_epoch", type = int, default=3, help = "number of epochs"
-    )
-    parser.add_argument(
-        "--n_epoch_cnc", type = int, default=3, help = "number of epochs for cnc"
-    )
-    parser.add_argument(
         "--test", dest='train', action='store_false', help = "only test the model"
+    )
+    parser.add_argument(
+        "--n_epoch", type = int, default=3, help = "number of epochs"
     )
     parser.add_argument(
         "--model", type = str, default = "LeNet", help = "the model to use"
@@ -35,13 +32,29 @@ def get_args():
         "--root_path", type = str, default='.', help = "the root path"
     )
     parser.add_argument(
-        "--Reweight", default = False, action = "store_true", help= "whether use weight in CrossEntropy."
+        "--reweight", default = False, action = "store_true", help= "whether use weight in CrossEntropy."
     )
     parser.add_argument(
         "--trainset", default="all_train", type = str, help="Which train dataset. all_train, train1, train2"
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--backdoor_adjustment", default = False, action = "store_true", help= "whether to adjust the backdoor."
+    )
 
-    args.backdoor_adjustment = args.model.lower() in ['lenet']
+    ### for CNC only
+    parser.add_argument(
+        "--force_train_erm", action="store_true", help="whether to force train the erm model"
+    )
+    parser.add_argument(
+        "--n_epoch_cnc", type = int, default=3, help = "number of epochs for cnc"
+    )
+    parser.add_argument(
+        "--lambda_contrast", type = float, default=0.5, help = "lambda for cnc"
+    )
+
+
+
+
+    args = parser.parse_args()
 
     return args

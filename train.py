@@ -12,22 +12,32 @@ import os
 from utils.args import *
 
 
-def train_epoch(trainLoader, model, device, optimizer, epoch, loss_r, loss_g, writer, change_col):
+def train_epoch(trainLoader, model, device, optimizer, epoch, losses, writer, change_col, backdoor_adjustment):
     loop = tqdm(enumerate(trainLoader), total=len(trainLoader))
     for index, (img, target, col) in loop:
         img, target, col = img.to(device), target.to(device), col.to(device)
 
-        pred_r, pred_g, target_r, target_g = model(img, col, target, change_col)
-        acc_r, acc_g = (pred_r.argmax(dim=1) == target_r).float().mean(), (pred_g.argmax(dim=1) == target_g).float().mean()
-        optimizer.zero_grad()
-        # loss = loss_r(pred_r, target_r) * len(pred_r) + loss_g(pred_g, target_g) * len(pred_g)
-        loss = loss_r(pred_r, target_r) + loss_g(pred_g, target_g)
-        loss.backward()
-        optimizer.step()
-        writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
-        loop.set_description(f'In Epoch {epoch}')
-        loop.set_postfix(loss=loss, acc_r=acc_r, acc_g=acc_g)
-
+        if backdoor_adjustment:
+            pred_r, pred_g, target_r, target_g = model(img, col, target, change_col)
+            acc_r, acc_g = (pred_r.argmax(dim=1) == target_r).float().mean(), (pred_g.argmax(dim=1) == target_g).float().mean()
+            optimizer.zero_grad()
+            # loss = loss_r(pred_r, target_r) * len(pred_r) + loss_g(pred_g, target_g) * len(pred_g)
+            loss = losses['r'](pred_r, target_r) + losses['g'](pred_g, target_g)
+            loss.backward()
+            optimizer.step()
+            writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
+            loop.set_description(f'In Epoch {epoch}')
+            loop.set_postfix(loss=loss, acc_r=acc_r, acc_g=acc_g)
+        else:
+            pred, target = model(img, col, target, change_col)
+            acc = (pred.argmax(dim=1) == target).float().mean()
+            optimizer.zero_grad()
+            loss = losses['default'](pred, target)
+            loss.backward()
+            optimizer.step()
+            writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
+            loop.set_description(f'In Epoch {epoch}')
+            loop.set_postfix(loss=loss, acc=acc)
 
 if __name__ == "__main__":
     args = get_args()
@@ -55,14 +65,20 @@ if __name__ == "__main__":
     rate = trainDataset.num[0] / (trainDataset.num[0] + trainDataset.num[1])  # P(E=0)
     print(rate)
     print(trainDataset.col_label)
-    if (args.Reweight):
-        loss_function_r = nn.CrossEntropyLoss(
-            weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
-        loss_function_g = nn.CrossEntropyLoss(
-            weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
+
+    loss_functions = {}
+    if args.backdoor_adjustment:
+        if (args.reweight):
+            loss_functions['r'] = nn.CrossEntropyLoss(
+                weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
+            loss_functions['g'] = nn.CrossEntropyLoss(
+                weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
+        else:
+            loss_functions['r'] = nn.CrossEntropyLoss()
+            loss_functions['g'] = nn.CrossEntropyLoss()
     else:
-        loss_function_r = nn.CrossEntropyLoss()
-        loss_function_g = nn.CrossEntropyLoss()
+        loss_functions['default'] = nn.CrossEntropyLoss()
+
     model = Model(device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     writer = SummaryWriter()
@@ -73,7 +89,7 @@ if __name__ == "__main__":
 
     if args.train:
         for epoch in range(args.n_epoch):
-            train_epoch(trainLoader, model, device, optimizer, epoch, loss_function_r, loss_function_g, writer, args.change_col)
+            train_epoch(trainLoader, model, device, optimizer, epoch, loss_functions, writer, args.change_col, args.backdoor_adjustment)
             if args.backdoor_adjustment:
                 acc = eval(model, device, testLoader, [rate, 1 - rate], args.change_col)
             else:

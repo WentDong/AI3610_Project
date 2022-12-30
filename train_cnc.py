@@ -12,6 +12,7 @@ import argparse
 import os
 from utils.args import *
 from model.CorrectNContrast import CorrectNContrast
+from utils.loss import ContrastLoss
 
 
 def train_epoch(trainLoader, model, device, optimizer, epoch, losses, writer, change_col, backdoor_adjustment):
@@ -98,7 +99,7 @@ if __name__ == "__main__":
     losses_cnc = {
         'contrast': nn.CrossEntropyLoss(),
         'cross_entropy': nn.CrossEntropyLoss(),
-        'lambda': 0.5,
+        'lambda': args.lambda_contrast
     }
 
     model = CorrectNContrast(device=device)
@@ -112,21 +113,22 @@ if __name__ == "__main__":
         writer = SummaryWriter()
         # ERM
         ckpt = f"./out/latest_channel{channel}.pth"
-        if os.path.exists(ckpt):
+        if not args.force_train_erm and os.path.exists(ckpt):
             try:
                 model_erm.load_state_dict(torch.load(ckpt, map_location=device))
             except TypeError:
-                retrain = True
+                train_erm = True
             else:
-                retrain = True
+                train_erm = True
         else:
-            retrain = True
+            train_erm = True
 
-        if retrain:
+        if train_erm:
+            print('[INFO] Good erm checkpoint not found, start training erm ...')
             # erm loss
             loss_functions = {}
             if args.backdoor_adjustment:
-                if (args.Reweight):
+                if (args.reweight):
                     loss_functions['r'] = nn.CrossEntropyLoss(
                         weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
                     loss_functions['g'] = nn.CrossEntropyLoss(
@@ -150,6 +152,7 @@ if __name__ == "__main__":
                 torch.save(model_erm.state_dict(), f"./out/latest_channel{channel}.pth")
 
         # CNC
+        print('[INFO] Start training CNC ...')
         cncDataset = ContrastiveDataset(trainDataset, model_erm, device)
         cncLoader = DataLoader(cncDataset, batch_size=args.bs, shuffle=True)
         for epoch in range(args.n_epoch_cnc):

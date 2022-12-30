@@ -4,13 +4,14 @@ from torchvision.transforms.functional import InterpolationMode
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from dataset.ColorMNISTLoader import ColoredMNIST
-from dataset.PairDataset import PairDataset
+from dataset.ContrastiveDataset import ContrastiveDataset
 import torch
 from torch import nn
 from eval import eval
 import argparse
 import os
 from utils.args import *
+from model.CorrectNContrast import CorrectNContrast
 
 
 def train_epoch(trainLoader, model, device, optimizer, epoch, losses, writer, change_col, backdoor_adjustment):
@@ -41,6 +42,30 @@ def train_epoch(trainLoader, model, device, optimizer, epoch, losses, writer, ch
             loop.set_postfix(loss=loss, acc=acc)
 
 
+def train_epoch_cnc(trainLoader, model, device, optimizer, epoch, losses, writer):
+    loop = tqdm(enumerate(trainLoader), total=len(trainLoader))
+    for index, data in loop:
+        data = [d.to(device) for d in data]
+
+        pred, target, feat = model(*data)
+
+        acc = (pred.argmax(dim=1) == target).float().mean()
+
+        loss_dict = {
+            'contrast': losses['contrast'](feat),
+            'cross_entropy': losses['cross_entropy'](pred, target),
+        }
+        loss = loss_dict['contrast'] * losses['lambda'] + loss_dict['cross_entropy'] * (1 - losses['lambda'])
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        writer.add_scalar('train/cnc/loss_contrast', scalar_value=loss_dict['contrast'], global_step=index + epoch * len(trainLoader))
+        writer.add_scalar('train/cnc/loss_cross_entropy', scalar_value=loss_dict['cross_entropy'], global_step=index + epoch * len(trainLoader))
+        writer.add_scalar('train/cnc/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
+        loop.set_description(f'In Epoch {epoch}')
+        loop.set_postfix(loss=loss, acc=acc)
+
+
 if __name__ == "__main__":
     args = get_args()
 
@@ -68,32 +93,28 @@ if __name__ == "__main__":
     print(rate)
     print(trainDataset.col_label)
 
-    loss_functions = {}
-    if args.backdoor_adjustment:
-        if (args.Reweight):
-            loss_functions['r'] = nn.CrossEntropyLoss(
-                weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
-            loss_functions['g'] = nn.CrossEntropyLoss(
-                weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
-        else:
-            loss_functions['r'] = nn.CrossEntropyLoss()
-            loss_functions['g'] = nn.CrossEntropyLoss()
-    else:
-        loss_functions['default'] = nn.CrossEntropyLoss()
 
-    model = Model(device=device)
+    # cnc loss
+    losses_cnc = {
+        'contrast': nn.CrossEntropyLoss(),
+        'cross_entropy': nn.CrossEntropyLoss(),
+        'lambda': 0.5,
+    }
+
+    model = CorrectNContrast(device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    writer = SummaryWriter()
 
     if not os.path.exists(args.out_path):
         os.mkdir(args.out_path)
 
     if args.train:
+        model_erm = Model(device=device)
+        writer = SummaryWriter()
         # ERM
         ckpt = f"./out/latest_channel{channel}.pth"
         if os.path.exists(ckpt):
             try:
-                model.load_state_dict(torch.load(ckpt, map_location=device))
+                model_erm.load_state_dict(torch.load(ckpt, map_location=device))
             except TypeError:
                 retrain = True
             else:
@@ -102,27 +123,42 @@ if __name__ == "__main__":
             retrain = True
 
         if retrain:
+            # erm loss
+            loss_functions = {}
+            if args.backdoor_adjustment:
+                if (args.Reweight):
+                    loss_functions['r'] = nn.CrossEntropyLoss(
+                        weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
+                    loss_functions['g'] = nn.CrossEntropyLoss(
+                        weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
+                else:
+                    loss_functions['r'] = nn.CrossEntropyLoss()
+                    loss_functions['g'] = nn.CrossEntropyLoss()
+            else:
+                loss_functions['default'] = nn.CrossEntropyLoss()
+
+            optimizer_erm = torch.optim.Adam(model_erm.parameters(), lr=args.lr)
             for epoch in range(args.n_epoch):
-                train_epoch(trainLoader, model, device, optimizer, epoch, loss_functions, writer,
+                train_epoch(trainLoader, model_erm, device, optimizer_erm, epoch, loss_functions, writer,
                             args.change_col, args.backdoor_adjustment)
                 if args.backdoor_adjustment:
-                    acc = eval(model, device, testLoader, [rate, 1 - rate], args.change_col)
+                    acc = eval(model_erm, device, testLoader, [rate, 1 - rate], args.change_col)
                 else:
-                    acc = eval(model, device, testLoader, [1.], args.change_col)
+                    acc = eval(model_erm, device, testLoader, [1.], args.change_col)
                 print(f"After epoch {epoch}, the accuracy is {acc}")
-                torch.save(model.state_dict(), f"./out/epoch{epoch}_channel{channel}.pth")
-                torch.save(model.state_dict(), f"./out/latest_channel{channel}.pth")
+                torch.save(model_erm.state_dict(), f"./out/epoch{epoch}_channel{channel}.pth")
+                torch.save(model_erm.state_dict(), f"./out/latest_channel{channel}.pth")
 
         # CNC
-        PairDataset(trainDataset, model, device)
+        cncDataset = ContrastiveDataset(trainDataset, model_erm, device)
+        cncLoader = DataLoader(cncDataset, batch_size=args.bs, shuffle=True)
         for epoch in range(args.n_epoch_cnc):
-            train_epoch(trainLoader, model, device, optimizer, epoch, loss_function_r, loss_function_g, writer, args.change_col)
-
-
+            train_epoch_cnc(trainLoader, model, device, optimizer, epoch, losses_cnc, writer)
+            acc = eval(model, device, testLoader, [1.])
+            print(f"After epoch {epoch}, the accuracy is {acc}")
+            torch.save(model.state_dict(), f"./out/cnc_epoch{epoch}_channel{channel}.pth")
+            torch.save(model.state_dict(), f"./out/cnc_latest_channel{channel}.pth")
     else:
-        if args.backdoor_adjustment:
-            acc = eval(model, device, testLoader, [rate, 1 - rate], args.change_col)
-        else:
-            acc = eval(model, device, testLoader, [1.], args.change_col)
+        acc = eval(model, device, testLoader, [1.])
         print(f"The accuracy is {acc}")
 

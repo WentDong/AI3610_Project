@@ -68,16 +68,23 @@ if __name__ == "__main__":
 
     loss_functions = {}
     if args.backdoor_adjustment:
-        if (args.reweight):
+        if args.reweight:
             loss_functions['r'] = nn.CrossEntropyLoss(
-                weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
+                weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float().to(device))
             loss_functions['g'] = nn.CrossEntropyLoss(
-                weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
+                weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float().to(device))
         else:
             loss_functions['r'] = nn.CrossEntropyLoss()
             loss_functions['g'] = nn.CrossEntropyLoss()
     else:
-        loss_functions['default'] = nn.CrossEntropyLoss()
+        if (args.reweight):
+            loss_functions['default'] = nn.CrossEntropyLoss(
+                weight=torch.tensor([
+                    trainDataset.col_label[0][1] + trainDataset.col_label[1][1],
+                    trainDataset.col_label[0][0] + trainDataset.col_label[1][0]
+                ]).float().to(device))
+        else:
+            loss_functions['default'] = nn.CrossEntropyLoss()
 
     model = Model(device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -96,8 +103,8 @@ if __name__ == "__main__":
                 acc = eval(model, device, testLoader, [1.], args.change_col)
             print(f"After epoch {epoch}, the accuracy is {acc}")
             torch.save(model, f"./out/epoch{epoch}_channel{channel}" +
-                              "_backdoor-adj" if args.backdoor_adjustment else "" +
-                              "_change-col" if args.change_col else "" +
+                              ("_backdoor-adj" if args.backdoor_adjustment else "") +
+                              ("_change-col" if args.change_col else "") +
                               ".pth")
     else:
         if args.backdoor_adjustment:

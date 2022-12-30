@@ -128,9 +128,9 @@ if __name__ == "__main__":
             if args.backdoor_adjustment:
                 if (args.reweight):
                     loss_functions['r'] = nn.CrossEntropyLoss(
-                        weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float())
+                        weight=torch.tensor([trainDataset.col_label[0][1], trainDataset.col_label[0][0]]).float().to(device))
                     loss_functions['g'] = nn.CrossEntropyLoss(
-                        weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float())
+                        weight=torch.tensor([trainDataset.col_label[1][1], trainDataset.col_label[1][0]]).float().to(device))
                 else:
                     loss_functions['r'] = nn.CrossEntropyLoss()
                     loss_functions['g'] = nn.CrossEntropyLoss()

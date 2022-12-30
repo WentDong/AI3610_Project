@@ -51,6 +51,9 @@ def get_args():
     parser.add_argument(
         "--lambda_contrast", type = float, default=0.5, help = "lambda for cnc"
     )
+    parser.add_argument(
+        "--temperature", type = float, default=0.1, help = "temperature for contrastive loss"
+    )
 
 
 

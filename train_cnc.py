@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
     # cnc loss
     losses_cnc = {
-        'contrast': ContrastLoss(),
+        'contrast': ContrastLoss(args.temperature),
         'cross_entropy': nn.CrossEntropyLoss(),
         'lambda': args.lambda_contrast
     }

@@ -26,6 +26,7 @@ class LeNet(nn.Module):
         return self.extract(x)
 
     def pred(self, x):
+        x = self.extract(x)
         return self.final(x)
 
 
@@ -36,16 +37,19 @@ class CorrectNContrast(nn.Module):
         self.net = LeNet(input_channel, output_channel).to(device)
 
     def forward(self, anchors, positives, negatives, target_anchors, target_positives, target_negatives):
-        imgs_all = torch.cat([anchors, positives, negatives], dim=0)
-        target_all = torch.cat([target_anchors, target_positives, target_negatives], dim=0)
+        anchors_flat = anchors.view(-1, *anchors.shape[-3:])
+        positives_flat = positives.view(-1, *positives.shape[-3:])
+        negatives_flat = negatives.view(-1, *negatives.shape[-3:])
+        imgs_all = torch.cat([anchors_flat, positives_flat, negatives_flat], dim=0)
+        target_all = torch.cat([target_anchors, target_positives, target_negatives], dim=0).view(-1)
 
         pred_all = self.net.pred(imgs_all)
         feat_all = self.net.feat(imgs_all)
 
         feat = {
-            'anchor': feat_all[:len(anchors)],
-            'positive': feat_all[len(anchors):len(anchors)+len(positives)],
-            'negative': feat_all[len(anchors)+len(positives):]
+            'anchor': feat_all[:len(anchors_flat)].reshape(*anchors.shape[:2], -1),
+            'positive': feat_all[len(anchors_flat):len(anchors_flat) + len(positives_flat)].reshape(*positives.shape[:2], -1),
+            'negative': feat_all[len(anchors_flat) + len(positives_flat):].reshape(*negatives.shape[:2], -1),
         }
 
         return pred_all, target_all, feat

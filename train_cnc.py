@@ -30,7 +30,7 @@ def train_epoch(trainLoader, model, device, optimizer, epoch, losses, writer, ch
             optimizer.step()
             writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
             loop.set_description(f'In Epoch {epoch}')
-            loop.set_postfix(loss=loss, acc_r=acc_r, acc_g=acc_g)
+            loop.set_postfix(loss=loss.detach().cpu().item(), acc_r=acc_r.detach().cpu().item(), acc_g=acc_g.detach().cpu().item())
         else:
             pred, target = model(img, col, target, change_col)
             acc = (pred.argmax(dim=1) == target).float().mean()
@@ -40,7 +40,7 @@ def train_epoch(trainLoader, model, device, optimizer, epoch, losses, writer, ch
             optimizer.step()
             writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
             loop.set_description(f'In Epoch {epoch}')
-            loop.set_postfix(loss=loss, acc=acc)
+            loop.set_postfix(loss=loss.detach().cpu().item(), acc=acc.detach().cpu().item())
 
 
 def train_epoch_cnc(trainLoader, model, device, optimizer, epoch, losses, writer):
@@ -64,7 +64,7 @@ def train_epoch_cnc(trainLoader, model, device, optimizer, epoch, losses, writer
         writer.add_scalar('train/cnc/loss_cross_entropy', scalar_value=loss_dict['cross_entropy'], global_step=index + epoch * len(trainLoader))
         writer.add_scalar('train/cnc/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
         loop.set_description(f'In Epoch {epoch}')
-        loop.set_postfix(loss=loss, acc=acc)
+        loop.set_postfix(loss=loss.detach().cpu().item(), acc=acc.detach().cpu().item())
 
 
 if __name__ == "__main__":
@@ -97,12 +97,12 @@ if __name__ == "__main__":
 
     # cnc loss
     losses_cnc = {
-        'contrast': nn.CrossEntropyLoss(),
+        'contrast': ContrastLoss(),
         'cross_entropy': nn.CrossEntropyLoss(),
         'lambda': args.lambda_contrast
     }
 
-    model = CorrectNContrast(device=device)
+    model = CorrectNContrast(input_channel=channel, device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     if not os.path.exists(args.out_path):
@@ -113,15 +113,13 @@ if __name__ == "__main__":
         writer = SummaryWriter()
         # ERM
         ckpt = f"./out/latest_channel{channel}.pth"
+        train_erm = True
         if not args.force_train_erm and os.path.exists(ckpt):
             try:
                 model_erm.load_state_dict(torch.load(ckpt, map_location=device))
+                train_erm = False
             except TypeError:
-                train_erm = True
-            else:
-                train_erm = True
-        else:
-            train_erm = True
+                pass
 
         if train_erm:
             print('[INFO] Good erm checkpoint not found, start training erm ...')
@@ -156,7 +154,7 @@ if __name__ == "__main__":
         cncDataset = ContrastiveDataset(trainDataset, model_erm, device)
         cncLoader = DataLoader(cncDataset, batch_size=args.bs, shuffle=True)
         for epoch in range(args.n_epoch_cnc):
-            train_epoch_cnc(trainLoader, model, device, optimizer, epoch, losses_cnc, writer)
+            train_epoch_cnc(cncLoader, model, device, optimizer, epoch, losses_cnc, writer)
             acc = eval(model, device, testLoader, [1.])
             print(f"After epoch {epoch}, the accuracy is {acc}")
             torch.save(model.state_dict(), f"./out/cnc_epoch{epoch}_channel{channel}.pth")

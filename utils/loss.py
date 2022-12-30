@@ -16,8 +16,9 @@ class ContrastLoss(Module):
         return loss_1 + loss_2
 
     def loss(self, anchor, positives, negatives):
-        pos = torch.exp(anchor @ positives / self.temperature)
-        neg = torch.exp(anchor @ negatives / self.temperature)
+        pos = torch.exp(torch.bmm(positives, anchor[..., None]) / self.temperature).squeeze(-1)
+        neg = torch.exp(torch.bmm(negatives, anchor[..., None]) / self.temperature).squeeze(-1)
         dominator = pos.sum(dim=1) + neg.sum(dim=1)
-        loss = - torch.log(pos / dominator).mean()
-        return loss
+        loss = - torch.log(pos).mean(dim=1) + torch.log(dominator)
+        return loss.mean()
+

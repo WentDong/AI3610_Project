@@ -15,6 +15,7 @@ class ContrastiveDataset(Dataset):
             with torch.no_grad():
                 img, target, col = img.to(device), target.to(device), col.to(device)
                 pred, _ = model(img, col, target, False)
+                pred = torch.argmax(pred, dim=1)
                 for idx, p, t in zip(ids, pred, target):
                     self.groups[p * 2 + t].append(idx)
 
@@ -31,6 +32,7 @@ class ContrastiveDataset(Dataset):
             group_negative = 1
             positive = 0
         else:
+            idx = idx - self.group_len[0] + self.output_size - 1
             group = 3
             group_positive = 1
             group_negative = 2

@@ -27,7 +27,7 @@ def train_epoch(trainLoader, model, device, optimizer, epoch, losses, writer, ch
             optimizer.step()
             writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
             loop.set_description(f'In Epoch {epoch}')
-            loop.set_postfix(loss=loss, acc_r=acc_r, acc_g=acc_g)
+            loop.set_postfix(loss=loss.detach().cpu().item(), acc_r=acc_r.detach().cpu().item(), acc_g=acc_g.detach().cpu().item())
         else:
             pred, target = model(img, col, target, change_col)
             acc = (pred.argmax(dim=1) == target).float().mean()
@@ -37,7 +37,7 @@ def train_epoch(trainLoader, model, device, optimizer, epoch, losses, writer, ch
             optimizer.step()
             writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
             loop.set_description(f'In Epoch {epoch}')
-            loop.set_postfix(loss=loss, acc=acc)
+            loop.set_postfix(loss=loss.detach().cpu().item(), acc=acc.detach().cpu().item())
 
 if __name__ == "__main__":
     args = get_args()
@@ -95,7 +95,10 @@ if __name__ == "__main__":
             else:
                 acc = eval(model, device, testLoader, [1.], args.change_col)
             print(f"After epoch {epoch}, the accuracy is {acc}")
-            torch.save(model, f"./out/epoch{epoch}_channel{channel}.pth")
+            torch.save(model, f"./out/epoch{epoch}_channel{channel}" +
+                              "_backdoor-adj" if args.backdoor_adjustment else "" +
+                              "_change-col" if args.change_col else "" +
+                              ".pth")
     else:
         if args.backdoor_adjustment:
             acc = eval(model, device, testLoader, [rate, 1 - rate], args.change_col)

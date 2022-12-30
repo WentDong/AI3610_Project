@@ -20,47 +20,57 @@ class LeNet(nn.Module):
         return self.net(x)
 
 class MyModel(nn.Module):
-    def __init__(self, input_channel = 1, output_channel = 2, device = 'cuda'):
+    def __init__(self, input_channel = 1, output_channel = 2, backdoor_adjustment=False, device = 'cuda'):
         super(MyModel, self).__init__()
         self.device = device
-        self.net_r = LeNet(input_channel, output_channel).to(device)
-        self.net_g = LeNet(input_channel, output_channel).to(device)
+        self.backdoor_adjustment = backdoor_adjustment
+        if backdoor_adjustment:
+            self.net_r = LeNet(input_channel, output_channel).to(device)
+            self.net_g = LeNet(input_channel, output_channel).to(device)
+        else:
+            self.net = LeNet(input_channel, output_channel).to(device)
 
     def forward(self, x, col, target, change_col):
-        if change_col:
-            x_r = torch.zeros_like(x)
-            x_r[:, 0, :, :] = x.sum(dim=1)
-            x_g = torch.zeros_like(x)
-            x_g[:, 1, :, :] = x.sum(dim=1)
-            pred_r = self.net_r(x_r)
-            pred_g = self.net_g(x_g)
-            target_r = target
-            target_g = target
-        else:
-            mask_r = (col==0)
-            mask_g = (col==1)
-            # pred_r = self.net_r(x)
-            # pred_g = self.net_g(x)
-            pred_r = self.net_r(x[mask_r])
-            pred_g = self.net_g(x[mask_g])
-            # target_r = target
-            # target_g = target
-            target_r = target[mask_r]
-            target_g = target[mask_g]
+        if self.backdoor_adjustment:
+            if change_col:
+                x_r = torch.zeros_like(x)
+                x_r[:, 0, :, :] = x.sum(dim=1)
+                x_g = torch.zeros_like(x)
+                x_g[:, 1, :, :] = x.sum(dim=1)
+                pred_r = self.net_r(x_r)
+                pred_g = self.net_g(x_g)
+                target_r = target
+                target_g = target
+            else:
+                mask_r = (col==0)
+                mask_g = (col==1)
+                # pred_r = self.net_r(x)
+                # pred_g = self.net_g(x)
+                pred_r = self.net_r(x[mask_r])
+                pred_g = self.net_g(x[mask_g])
+                # target_r = target
+                # target_g = target
+                target_r = target[mask_r]
+                target_g = target[mask_g]
 
-        return pred_r, pred_g, target_r, target_g
+            return pred_r, pred_g, target_r, target_g
+        else:
+            return self.net(x), target
         
     def eval(self, x, col, change_col=False):
-        if change_col:
-            x_r = torch.zeros_like(x)
-            x_r[:, 0, :, :] = x.sum(dim=1)
-            x_g = torch.zeros_like(x)
-            x_g[:, 1, :, :] = x.sum(dim=1)
-        else:
-            x_r = x
-            x_g = x
+        if self.backdoor_adjustment:
+            if change_col:
+                x_r = torch.zeros_like(x)
+                x_r[:, 0, :, :] = x.sum(dim=1)
+                x_g = torch.zeros_like(x)
+                x_g[:, 1, :, :] = x.sum(dim=1)
+            else:
+                x_r = x
+                x_g = x
 
-        pred_r = self.net_r(x_r)
-        pred_g = self.net_g(x_g)
-        return [pred_r, pred_g]
+            pred_r = self.net_r(x_r)
+            pred_g = self.net_g(x_g)
+            return [pred_r, pred_g]
+        else:
+            return [self.net(x)]
         

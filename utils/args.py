@@ -8,6 +8,9 @@ def get_args():
         "--n_epoch", type = int, default=3, help = "number of epochs"
     )
     parser.add_argument(
+        "--n_epoch_cnc", type = int, default=3, help = "number of epochs for cnc"
+    )
+    parser.add_argument(
         "--test", dest='train', action='store_false', help = "only test the model"
     )
     parser.add_argument(

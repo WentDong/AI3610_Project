@@ -34,7 +34,8 @@ if __name__ == "__main__":
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     if args.model.lower() == "lenet":
-        from model.LeNet import MyModel as Model
+        from model.LeNet import MyModel as ModelClass
+        Model = lambda **kwargs: ModelClass(input_channel=args.channel, backdoor_adjustment=args.backdoor_adjustment, **kwargs)
         transform = None
     elif args.model.lower() == "clip":
         from model.CLIP import CLIPClassifier as Model
@@ -62,7 +63,7 @@ if __name__ == "__main__":
     else:
         loss_function_r = nn.CrossEntropyLoss()
         loss_function_g = nn.CrossEntropyLoss()
-    model = Model(input_channel=channel, device=device)
+    model = Model(device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     writer = SummaryWriter()
 

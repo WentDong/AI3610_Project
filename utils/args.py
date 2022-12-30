@@ -57,4 +57,10 @@ def get_args():
 
     args = parser.parse_args()
 
+    # print opt
+    print('------------ Options -------------')
+    for k, v in sorted(vars(args).items()):
+        print('%s: %s' % (str(k), str(v)))
+    print('-------------- End ----------------')
+
     return args

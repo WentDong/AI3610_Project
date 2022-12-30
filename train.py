@@ -22,7 +22,7 @@ def train_epoch(trainLoader, model, device, optimizer, epoch, losses, writer, ch
             acc_r, acc_g = (pred_r.argmax(dim=1) == target_r).float().mean(), (pred_g.argmax(dim=1) == target_g).float().mean()
             optimizer.zero_grad()
             # loss = loss_r(pred_r, target_r) * len(pred_r) + loss_g(pred_g, target_g) * len(pred_g)
-            loss = losses['r'](pred_r, target_r) + losses['g'](pred_g, target_g)
+            loss = (losses['r'](pred_r, target_r) * len(pred_r) + losses['g'](pred_g, target_g) * len(pred_g)) / len(target)
             loss.backward()
             optimizer.step()
             writer.add_scalar('train/loss', scalar_value=loss, global_step=index + epoch * len(trainLoader))
